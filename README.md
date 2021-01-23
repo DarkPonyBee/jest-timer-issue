@@ -1,70 +1,182 @@
-# Getting Started with Create React App
+<!-- Love Jest? Please consider supporting our collective: 👉  https://opencollective.com/jest/donate -->
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## 🐛 Bug Report
 
-## Available Scripts
+Jest's timer mocks not work properly.
+`setTimeout` not work in jest.
 
-In the project directory, you can run:
+### card.js
+```js
+import React, { useEffect } from "react";
 
-### `yarn start`
+export default function Card(props) {
+  useEffect(() => {
+    const timeoutID = setTimeout(() => {
+      props.onSelect(null);
+    }, 5000);
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+    return () => {
+      clearTimeout(timeoutID);
+    };
+  }, [props.onSelect]);
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+  return [1, 2, 3, 4].map((choice) => (
+    <button
+      key={choice}
+      data-testid={choice}
+      onClick={() => props.onSelect(choice)}
+    >
+      {choice}
+    </button>
+  ));
+}
+```
 
-### `yarn test`
+### card.test.js
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```js
+// card.test.js
 
-### `yarn build`
+import React from "react";
+import { render, unmountComponentAtNode } from "react-dom";
+import { act } from "react-dom/test-utils";
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+import Card from "./card";
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+jest.useFakeTimers();
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+let container = null;
+beforeEach(() => {
+  // setup a DOM element as a render target
+  container = document.createElement("div");
+  document.body.appendChild(container);
+});
 
-### `yarn eject`
+afterEach(() => {
+  // cleanup on exiting
+  unmountComponentAtNode(container);
+  container.remove();
+  container = null;
+});
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+it("should select null after timing out", () => {
+  const onSelect = jest.fn();
+  act(() => {
+    render(<Card onSelect={onSelect} />, container);
+  });
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+  // move ahead in time by 100ms
+  act(() => {
+    jest.advanceTimersByTime(100);
+  });
+  expect(onSelect).not.toHaveBeenCalled();
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+  // and then move ahead by 5 seconds
+  act(() => {
+    jest.advanceTimersByTime(5000);
+  });
+  expect(onSelect).toHaveBeenCalledWith(null);
+});
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+it("should cleanup on being removed", () => {
+  const onSelect = jest.fn();
+  act(() => {
+    render(<Card onSelect={onSelect} />, container);
+  });
+  act(() => {
+    jest.advanceTimersByTime(100);
+  });
+  expect(onSelect).not.toHaveBeenCalled();
 
-## Learn More
+  // unmount the app
+  act(() => {
+    render(null, container);
+  });
+  act(() => {
+    jest.advanceTimersByTime(5000);
+  });
+  expect(onSelect).not.toHaveBeenCalled();
+});
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+it("should accept selections", () => {
+  const onSelect = jest.fn();
+  act(() => {
+    render(<Card onSelect={onSelect} />, container);
+  });
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+  act(() => {
+    container
+      .querySelector("[data-testid='2']")
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
 
-### Code Splitting
+  expect(onSelect).toHaveBeenCalledWith(2);
+});
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```
 
-### Analyzing the Bundle Size
+### Terminal Output
+```
+ FAIL  src/card.test.js
+  ● should select null after timing out
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
 
-### Making a Progressive Web App
+    Expected: null
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+    Number of calls: 0
 
-### Advanced Configuration
+      39 |     jest.advanceTimersByTime(5000);
+      40 |   });
+    > 41 |   expect(onSelect).toHaveBeenCalledWith(null);
+         |                    ^
+      42 | });
+      43 | 
+      44 | it("should cleanup on being removed", () => {
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+      at Object.<anonymous> (src/card.test.js:41:20)
 
-### Deployment
+ FAIL  src/contact.test.js
+  ● Test suite failed to run
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+    ENOENT: no such file or directory, open '/Volumes/Data/WORK/devHabit/test-skillup/src/contact.test.js'
 
-### `yarn build` fails to minify
+      at runTestInternal (node_modules/jest-runner/build/runTest.js:202:27)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+ PASS  src/App.test.js
+
+Test Suites: 2 failed, 1 passed, 3 total
+Tests:       1 failed, 3 passed, 4 total
+Snapshots:   0 total
+Time:        2.647 s
+Ran all test suites.
+
+Watch Usage: Press w to show more.
+```
+
+## To Reproduce
+
+- Create new react app by using `create-react-app` package.
+- Follow the `Timers` part in [`Testing Recipes`](https://reactjs.org/docs/testing-recipes.html) chapter from React Docs page.
+- Run test. `yarn test`
+
+## Expected behavior
+
+All the tests should be passed.
+
+## Link to repl or repo (highly encouraged)
+
+Please check this [repository](https://github.com/DarkPonyBee/jest-timer-issue).
+
+## envinfo
+
+
+```
+System:
+    OS: macOS 11.2
+    CPU: (4) x64 Intel(R) Core(TM) i3-9100 CPU @ 3.60GHz
+  Binaries:
+    Node: 15.2.0 - /usr/local/bin/node
+    Yarn: 1.22.10 - /usr/local/bin/yarn
+    npm: 7.0.10 - /usr/local/bin/npm
+```
